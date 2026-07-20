@@ -39,6 +39,31 @@ get_script_dir <- function() {
   getwd()
 }
 
+print_metrics_table <- function(mse, r_value, slope, intercept, r_squared) {
+  metrics <- data.frame(
+    Metric = c("MSE", "r", "slope", "intercept", "r_squared"),
+    Value = c(
+      sprintf("%.4f", mse),
+      sprintf("%.4f", r_value),
+      sprintf("%.4f", slope),
+      sprintf("%.4f", intercept),
+      sprintf("%.4f", r_squared)
+    ),
+    stringsAsFactors = FALSE
+  )
+  col0 <- max(nchar("Metric"), max(nchar(metrics$Metric)))
+  col1 <- max(nchar("Value"), max(nchar(metrics$Value)))
+  border <- paste0("+-", paste(rep("-", col0), collapse = ""), "-+-", paste(rep("-", col1), collapse = ""), "-+")
+  cat("\n")
+  cat(border, "\n")
+  cat(sprintf("| %-*s | %-*s |\n", col0, "Metric", col1, "Value"))
+  cat(border, "\n")
+  for (i in seq_len(nrow(metrics))) {
+    cat(sprintf("| %-*s | %-*s |\n", col0, metrics$Metric[i], col1, metrics$Value[i]))
+  }
+  cat(border, "\n\n")
+}
+
 filename <- resolve_path(args[1])
 x_col <- args[2]
 y_col <- args[3]
@@ -63,26 +88,37 @@ if (length(args) > 3) {
 dataset <- read.csv(filename)
 model <- lm(as.formula(paste(y_col, "~", x_col)), data = dataset)
 model_summary <- summary(model)
-r_squared <- model_summary$r.squared
 
-cat("\n")
-print(model_summary)
-cat("\n")
+slope <- coef(model)[[x_col]]
+intercept <- coef(model)[["(Intercept)"]]
+r_squared <- model_summary$r.squared
+r_value <- cor(dataset[[x_col]], dataset[[y_col]])
+y_pred <- predict(model, newdata = dataset)
+mse <- mean((dataset[[y_col]] - y_pred)^2)
+
+print_metrics_table(mse, r_value, slope, intercept, r_squared)
 
 library(ggplot2)
+
+annotation_label <- paste0(
+  "y = ", sprintf("%.2f", slope), "x + ", sprintf("%.2f", intercept),
+  "\nr = ", sprintf("%.2f", r_value)
+)
 
 plot <- ggplot() +
   geom_point(aes(x = dataset[[x_col]], y = dataset[[y_col]]), colour = "red") +
   geom_line(
-    aes(x = dataset[[x_col]], y = predict(model, newdata = dataset)),
+    aes(x = dataset[[x_col]], y = y_pred),
     colour = "blue"
   ) +
   annotate(
     "text",
-    x = min(dataset[[x_col]]),
-    y = max(dataset[[y_col]]),
-    label = paste("R² =", round(r_squared, 3)),
-    hjust = -0.2
+    x = -Inf,
+    y = Inf,
+    label = annotation_label,
+    hjust = -0.05,
+    vjust = 1.2,
+    size = 4
   ) +
   ggtitle(paste(y_col, "vs", x_col)) +
   xlab(x_col) +
