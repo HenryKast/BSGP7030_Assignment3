@@ -1,0 +1,14 @@
+name: assignment3_ai
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - scipy
+  - jupyter
+  - nbconvert
+  - r-base=4.5
+  - r-ggplot2
+  - r-irkernel

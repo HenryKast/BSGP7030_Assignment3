@@ -7,19 +7,36 @@ filename <- args[1]
 x_col <- args[2]
 y_col <- args[3]
 
-data <- read.csv(filename)
+dataset <- read.csv(filename)
 formula <- as.formula(paste(y_col, "~", x_col))
-model <- lm(formula, data = data)
+model <- lm(formula, data = dataset)
+
 r_squared <- summary(model)$r.squared
+r <- cor(dataset$YearsExperience, dataset$Salary)
+pred <- predict(model)
+mse <- mean((dataset$Salary - pred)^2)
+slope <- coef(model)[2]
+intercept <- coef(model)[1]
 
 library(ggplot2)
-plot <- ggplot(data, aes_string(x = x_col, y = y_col)) +
-  geom_point(color = "red") +
-  geom_smooth(method = "lm", color = "blue") +
-  ggtitle(paste(y_col, "vs", x_col)) +
-  annotate("text", x=min(data[[x_col]]), y=max(data[[y_col]]), label = paste("R² =", round(r_squared, 3)), hjust = -0.15, vjust = -7) +
-  xlab(x_col) +
-  ylab(y_col)
+plot <- ggplot() +
+  geom_point(aes(x = dataset$YearsExperience, y = dataset$Salary), colour = 'red') +
+  geom_line(aes(x = dataset$YearsExperience, y = predict(model, newdata = dataset)), colour = 'blue') +
+annotate("text", x = min(dataset$YearsExperience), y = max(dataset$Salary), label = paste
+          ("y =", round(slope, 2), 
+          "x +", round(intercept, 2), 
+          "\nr =", round(r, 2)), 
+         hjust=0, vjust=0.4) +
+ggtitle('Salary vs Experience') +
+  xlab('Years of experience') +
+  ylab('Salary')
+  
 
+summary_table <- data.frame(Metric = c("Intercept", "Slope", "MSE", "r", "R_squared"), Value = c(intercept, slope, mse, r, r_squared))
 ggsave("linear_regression_r_output.png", plot)
+print(summary_table)
 print(plot)
+
+
+
+

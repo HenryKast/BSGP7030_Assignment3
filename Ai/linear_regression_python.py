@@ -4,7 +4,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.stats import linregress
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 
 
 def resolve_path(path_str: str) -> Path:
@@ -25,7 +27,7 @@ def resolve_path(path_str: str) -> Path:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Fit a linear regression model and plot the results."
+        description="Fit a linear regression model, print metrics, and plot the results."
     )
     parser.add_argument("filename", help="Path to the input CSV file")
     parser.add_argument("x_column", help="Name of the predictor column")
@@ -43,33 +45,66 @@ def parse_args():
     return parser.parse_args()
 
 
+def print_metrics_table(metrics: dict) -> None:
+    """Display regression metrics as a terminal table."""
+    headers = ["Metric", "Value"]
+    rows = [
+        ("MSE", f"{metrics['mse']:.4f}"),
+        ("r", f"{metrics['r']:.4f}"),
+        ("slope", f"{metrics['slope']:.4f}"),
+        ("intercept", f"{metrics['intercept']:.4f}"),
+        ("r_squared", f"{metrics['r_squared']:.4f}"),
+    ]
+    col0 = max(len(headers[0]), max(len(r[0]) for r in rows))
+    col1 = max(len(headers[1]), max(len(r[1]) for r in rows))
+    border = f"+-{'-' * col0}-+-{'-' * col1}-+"
+    print(border)
+    print(f"| {headers[0]:<{col0}} | {headers[1]:<{col1}} |")
+    print(border)
+    for name, value in rows:
+        print(f"| {name:<{col0}} | {value:<{col1}} |")
+    print(border)
+
+
 def main():
     args = parse_args()
 
     data_path = resolve_path(args.filename)
     dataset = pd.read_csv(data_path)
+    x = dataset[args.x_column]
+    y = dataset[args.y_column]
+
     model = LinearRegression()
     model.fit(dataset[[args.x_column]], dataset[[args.y_column]])
+    y_pred = model.predict(dataset[[args.x_column]]).ravel()
 
+    slope, intercept, r_value, _, _ = linregress(x, y)
+    mse = mean_squared_error(y, y_pred)
     r_squared = model.score(dataset[[args.x_column]], dataset[[args.y_column]])
 
-    plt.scatter(dataset[args.x_column], dataset[args.y_column], color="red")
-    plt.plot(
-        dataset[args.x_column],
-        model.predict(dataset[[args.x_column]]),
-        color="blue",
-    )
-    plt.annotate(
-        f"R² = {r_squared:.3f}",
-        xy=(0.05, 0.95),
-        xycoords="axes fraction",
+    metrics = {
+        "mse": mse,
+        "r": r_value,
+        "slope": slope,
+        "intercept": intercept,
+        "r_squared": r_squared,
+    }
+    print_metrics_table(metrics)
+
+    plt.scatter(x, y, color="red")
+    plt.plot(x, y_pred, color="blue", label="Fitted line")
+    plt.text(
+        0.05,
+        0.95,
+        f"y = {slope:.2f}x + {intercept:.2f}\nr = {r_value:.2f}",
+        transform=plt.gca().transAxes,
         fontsize=12,
+        verticalalignment="top",
     )
     plt.title(f"{args.y_column} vs {args.x_column}")
     plt.xlabel(args.x_column)
     plt.ylabel(args.y_column)
-
-    print(f"R-squared: {r_squared:.4f}")
+    plt.legend()
 
     output_path = Path(args.output) if args.output else None
     if output_path is None and not args.show:
